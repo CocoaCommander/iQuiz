@@ -42,16 +42,16 @@ struct ContentView: View {
                     ToolbarItem {
                         Button("Settings") {
                             self.showAlert.toggle()
-                        }
-                        .alert(isPresented: $showAlert) {
-                            Alert(
-                                title: Text("Not Implemented"),
-                                message: Text("Settings go here")
-                            )
+                            print("\($showAlert)")
                         }
                     }
                 }
             }
+        }.alert(isPresented: $showAlert) {
+            Alert(
+                title: Text("Not Implemented"),
+                message: Text("Settings go here")
+            )
         }
     }
 }
