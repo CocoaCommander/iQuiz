@@ -116,7 +116,7 @@ struct ContentView: View {
                         "32nd element on the periodic table.",
                         "What stars are made of."
                     ],
-                    correctAnswer: "The powerhouse of the cell"
+                    correctAnswer: "The powerhouse of the cell."
                 ),
                 question(
                     questionText: "What is the boiling point of water?",
@@ -147,7 +147,16 @@ struct ContentView: View {
             NavigationView {
                 List(allQuizzes) { quiz in
                     NavigationLink(
-                        destination: QuestionView()
+                        destination: QuestionView(
+                            allQuestions: quiz.questions,
+                            index: 0,
+                            currQuestion: quiz.questions[0].questionText,
+                            currAnswers: quiz.questions[0].answers,
+                            selectedAnswer: quiz.questions[0].answers[0],
+                            correctAnswer: quiz.questions[0].correctAnswer,
+                            numCorrect: 0,
+                            totalQuestions: quiz.questions.count
+                        )
                     ) {
                         TopicCell(quizItem: quiz)
                     }
@@ -193,19 +202,38 @@ struct TopicCell: View {
 
 struct QuestionView: View {
     
+    var allQuestions: [question]
+    @State var index: Int
+    var currQuestion: String
+    var currAnswers: [String]
+    @State var selectedAnswer: String
+    var correctAnswer: String
+    @State var numCorrect: Int
+    var totalQuestions: Int
+    
     var body: some View {
         NavigationView {
             VStack {
-                Text()
-                
-                Picker("Answers:", selection: ) {
-                    ForEach() {
-                        Text()
+                Text("Question \(index + 1) of \(totalQuestions)").padding()
+                Text(self.currQuestion)
+                Picker("Answers:", selection: $selectedAnswer) {
+                    ForEach(currAnswers, id: \.self) {
+                        Text($0)
                     }
                 }
-                Text("Selected answer: ")
-                NavigationLink() {
-                    Text("submit")
+                NavigationLink(
+                    destination: AnswerView(
+                        allQuestions: allQuestions,
+                        index: $index,
+                        currQuestion: currQuestion,
+                        currAnswers: currAnswers,
+                        selectedAnswer: selectedAnswer,
+                        correctAnswer: correctAnswer,
+                        numCorrect: $numCorrect,
+                        totalQuestions: totalQuestions
+                ).navigationBarHidden(true)
+                ) {
+                    Text("Submit")
                 }
             }
         }
@@ -214,15 +242,84 @@ struct QuestionView: View {
 
 struct AnswerView: View {
     
+    var allQuestions: [question]
+    @Binding var index: Int
+    var currQuestion: String
+    var currAnswers: [String]
+    var selectedAnswer: String
+    var correctAnswer: String
+    @Binding var numCorrect: Int
+    var totalQuestions: Int
+    @State var userIsCorrect = false
+    
+    func updateSelf(expectedAnswer expected: String, receivedAnswer received: String) -> Void {
+        if (expected == received) {
+            numCorrect += 1
+        }
+        index += 1
+        self.userIsCorrect = expected == received
+    }
+    
     @ViewBuilder
     var body: some View {
-        NavigationView {
-            VStack {
-                Text("Wrong answer, \n actual answer was abc.")
-                Button("Next") {
-                    
+        if index < totalQuestions {
+            NavigationView {
+                VStack {
+                    Text(currQuestion).bold().padding()
+                    Text(self.userIsCorrect ? "You got it right!" : "You got it wrong...")
+                    Text("Score: \(numCorrect)")
+                    Text("\(totalQuestions - index) more questions.")
+                    NavigationLink(
+                        destination: QuestionView(
+                            allQuestions: allQuestions,
+                            index: index,
+                            currQuestion: allQuestions[index].questionText,
+                            currAnswers: allQuestions[index].answers,
+                            selectedAnswer: allQuestions[index].answers[0],
+                            correctAnswer: allQuestions[index].correctAnswer,
+                            numCorrect: numCorrect,
+                            totalQuestions: totalQuestions
+                        ).navigationBarHidden(true)
+                    ) {
+                        Text("Next")
+                    }
+                }
+            }.onAppear {
+                self.updateSelf(
+                    expectedAnswer: self.correctAnswer,
+                    receivedAnswer: self.selectedAnswer
+                )
+            }
+        } else {
+            NavigationView {
+                VStack {
+                    Text(currQuestion).bold().padding()
+                    Text(self.userIsCorrect ? "You got it right!" : "You got it wrong...")
+                    Text("Score: \(numCorrect)")
+                    Text("You have completed the quiz.")
+                    NavigationLink(
+                        destination: FinishView(numCorrect: numCorrect, totalQuestions: totalQuestions
+                        ).navigationBarHidden(true)
+                    ) {
+                        Text("Finish")
+                    }
                 }
             }
+        }
+    }
+}
+
+struct FinishView: View {
+    
+    var numCorrect: Int
+    var totalQuestions: Int
+    
+    var body: some View {
+        VStack {
+            Text("You've finished the quiz.")
+            Text("You got \(numCorrect) out of \(totalQuestions) right\(numCorrect < totalQuestions ? "..." : "!")")
+            Text("\(numCorrect < totalQuestions ? "You didn't get all of them right; Better luck next time..." : "You got them all right! Congratulations!")")
+            Text("Tap iQuiz to return to the home screen.")
         }
     }
 }
