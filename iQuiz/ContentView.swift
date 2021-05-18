@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import Network
 
 struct Category: Codable {
     var title: String
@@ -21,6 +22,9 @@ struct Question: Codable {
 
 struct ContentView: View {
     
+    @State var showError = false
+    @State var loadError = ""
+    @State var quizLocation = "https://tednewardsandbox.site44.com/questions.json"
     @State var showAlert = false
     @State var allQuizzes: [Category] = [
         Category(
@@ -42,6 +46,7 @@ struct ContentView: View {
         "Mathematics": "function",
         "Default": "function"
     ]
+    var monitor = NWPathMonitor()
     
     
     var body: some View {
@@ -64,7 +69,31 @@ struct ContentView: View {
                         TopicCell(quizItem: category, images: images)
                         }
                 }.onAppear {
+                    if let data = UserDefaults.standard.data(forKey: "quizData") {
+                        do {
+                            // Create JSON Decoder
+                            let decoder = JSONDecoder()
+
+                            // Decode Note
+                            self.allQuizzes = try decoder.decode([Category].self, from: data)
+
+                        } catch {
+                            print("Unable to Decode quizData (\(error))")
+                        }
+                    }
+                    monitor.pathUpdateHandler = { path in
+                        if path.status == .satisfied {
+                            return
+                        } else {
+                            self.loadError = "No internet connection."
+                        }
+                    }
+                    let queue = DispatchQueue(label: "Monitor")
+                    monitor.start(queue: queue)
                     loadData()
+                    if self.loadError != "" {
+                        self.showError = !self.showError
+                    }
                 }.navigationTitle("iQuiz").toolbar {
                     ToolbarItem {
                         Button("Settings") {
@@ -74,18 +103,74 @@ struct ContentView: View {
                 }
             }
         }
-        .alert(isPresented: $showAlert) {
+        .textFieldAlert(isShowing: $showAlert, text: $quizLocation, title: "Alert!")
+        .alert(isPresented: $showError) {
             Alert(
-                title: Text("Not Implemented"),
-                message: Text("Settings go here")
+                title: Text("Error"),
+                message: Text(self.loadError)
             )
         }
     }
 }
 
+struct TextFieldAlert<Presenting>: View where Presenting: View {
+
+    @Binding var isShowing: Bool
+    @Binding var text: String
+    let presenting: Presenting
+    let title: String
+
+    var body: some View {
+        GeometryReader { (deviceSize: GeometryProxy) in
+            ZStack {
+                self.presenting
+                    .disabled(isShowing)
+                VStack {
+                    Text(self.title)
+                    TextField("", text: self.$text)
+                        .multilineTextAlignment(.center)
+                        .lineLimit(1)
+                        .id(self.isShowing)
+                    Divider()
+                    HStack {
+                        Button(action: {
+                            withAnimation {
+                                self.isShowing.toggle()
+                            }
+                        }) {
+                            Text("Check Now")
+                        }
+                    }
+                }
+                .padding()
+                .background(Color(UIColor.systemBackground))
+                .frame(
+                    width: deviceSize.size.width*0.7,
+                    height: deviceSize.size.height*0.7
+                )
+                .shadow(radius: 1)
+                .opacity(self.isShowing ? 1 : 0)
+            }
+        }
+    }
+}
+
+extension View {
+
+    func textFieldAlert(isShowing: Binding<Bool>,
+                        text: Binding<String>,
+                        title: String) -> some View {
+        TextFieldAlert(isShowing: isShowing,
+                       text: text,
+                       presenting: self,
+                       title: title)
+    }
+
+}
+
 extension ContentView {
     func loadData() -> Void {
-        guard let url = URL(string: "https://tednewardsandbox.site44.com/questions.json") else {
+        guard let url = URL(string: quizLocation) else {
             print("Invalid URL")
             return
         }
@@ -97,17 +182,18 @@ extension ContentView {
                     let decodedResponse = try JSONDecoder().decode([Category].self, from: data)
                     DispatchQueue.main.async {
                         self.allQuizzes = decodedResponse
+                        UserDefaults.standard.set(data, forKey: "quizData")
                     }
                 } catch DecodingError.keyNotFound(let key, let context) {
-                    Swift.print("could not find key \(key) in JSON: \(context.debugDescription)")
+                    self.loadError = "could not find key \(key) in JSON: \(context.debugDescription)"
                 } catch DecodingError.valueNotFound(let type, let context) {
-                    Swift.print("could not find type \(type) in JSON: \(context.debugDescription)")
+                    self.loadError = "could not find type \(type) in JSON: \(context.debugDescription)"
                 } catch DecodingError.typeMismatch(let type, let context) {
-                    Swift.print("type mismatch for type \(type) in JSON: \(context.debugDescription)")
+                    self.loadError = "type mismatch for type \(type) in JSON: \(context.debugDescription)"
                 } catch DecodingError.dataCorrupted(let context) {
-                    Swift.print("data found to be corrupted in JSON: \(context.debugDescription)")
+                    self.loadError = "data found to be corrupted in JSON: \(context.debugDescription)"
                 } catch let error as NSError {
-                    Swift.print("Error in read(from:ofType:) domain= \(error.domain), description= \(error.localizedDescription)")
+                    self.loadError = "Error in read(from:ofType:) domain= \(error.domain), description= \(error.localizedDescription)"
                 }
             }
         }.resume()
