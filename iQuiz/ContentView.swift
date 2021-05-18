@@ -19,8 +19,72 @@ struct Question: Codable {
     var answers: [String]
 }
 
+struct ContentView: View {
+    
+    @State var showAlert = false
+    @State var allQuizzes: [Category] = [
+        Category(
+            title: "Default",
+            desc: "Default",
+            questions: [
+                Question(
+                    text: "Default",
+                    answer: "Default",
+                    answers: ["default"]
+                )
+            ]
+        )
+    ]
+    
+    var images: [String: String] = [
+        "Science!": "bolt.circle",
+        "Marvel Super Heroes": "m.circle",
+        "Mathematics": "function",
+        "Default": "function"
+    ]
+    
+    
+    var body: some View {
+        VStack {
+            NavigationView {
+                List(self.allQuizzes, id: \.title) { category in
+                    NavigationLink(
+                        destination:
+                            QuestionView(
+                                allQuestions: category.questions,
+                                index: 0,
+                                currQuestion: category.questions[0].text,
+                                currAnswers: category.questions[0].answers,
+                                selectedAnswer: category.questions[0].answers[0],
+                                correctAnswer: category.questions[0].answer,
+                                numCorrect: 0,
+                                totalQuestions: category.questions.count
+                            )
+                        ) {
+                        TopicCell(quizItem: category, images: images)
+                        }
+                }.onAppear {
+                    loadData()
+                }.navigationTitle("iQuiz").toolbar {
+                    ToolbarItem {
+                        Button("Settings") {
+                            self.showAlert = !self.showAlert
+                        }
+                    }
+                }
+            }
+        }
+        .alert(isPresented: $showAlert) {
+            Alert(
+                title: Text("Not Implemented"),
+                message: Text("Settings go here")
+            )
+        }
+    }
+}
+
 extension ContentView {
-    func loadData() {
+    func loadData() -> Void {
         guard let url = URL(string: "https://tednewardsandbox.site44.com/questions.json") else {
             print("Invalid URL")
             return
@@ -43,90 +107,21 @@ extension ContentView {
                 } catch DecodingError.dataCorrupted(let context) {
                     Swift.print("data found to be corrupted in JSON: \(context.debugDescription)")
                 } catch let error as NSError {
-                    NSLog("Error in read(from:ofType:) domain= \(error.domain), description= \(error.localizedDescription)")
+                    Swift.print("Error in read(from:ofType:) domain= \(error.domain), description= \(error.localizedDescription)")
                 }
-                self.allQuizzes = [
-                    Category(
-                        title: "Default",
-                        desc: "Default",
-                        questions: [
-                            Question(
-                                text: "Default",
-                                answer: "Default",
-                                answers: ["default"]
-                            )
-                        ]
-                    )
-                ]
-                Swift.print(self.allQuizzes)
             }
         }.resume()
     }
 }
 
-struct ContentView: View {
-    
-    @State var showAlert = false
-    @State var allQuizzes: [Category] = []
-    
-    var images: [String: String] = [
-        "Science": "bolt.circle",
-        "Marvel Super Heroes": "m.circle",
-        "Mathematics": "function"
-    ]
-    
-    
-    var body: some View {
-        VStack {
-            NavigationView {
-                List(allQuizzes) { category in
-                    NavigationLink(
-                        destination:
-                            QuestionView(
-                                allQuestions: category.questions,
-                                index: 0,
-                                currQuestion: category.questions[0].text,
-                                currAnswers: category.questions[0].answers,
-                                selectedAnswer: category.questions[0].answers[0],
-                                correctAnswer: category.questions[0].answer,
-                                numCorrect: 0,
-                                totalQuestions: category.questions.count)
-                    ) {
-                        TopicCell(quizItem: category, image: "function")
-                    }
-                }
-                .onAppear {
-                    loadData()
-                }
-                .navigationTitle("iQuiz")
-                .toolbar {
-                    ToolbarItem {
-                        Button("Settings") {
-                            self.showAlert = !self.showAlert
-                        }
-                    }
-                }
-            }
-        }.alert(isPresented: $showAlert) {
-            Alert(
-                title: Text("Not Implemented"),
-                message: Text("Settings go here")
-            )
-        }
-    }
-}
-
-
-
-
 struct TopicCell: View {
     
     let quizItem: Category
-    let image: String
+    let images: [String: String]
     
     var body: some View {
         HStack(spacing: 50) {
-            Image(systemName: image)
+            Image(systemName: images[quizItem.title]!)
                 .resizable()
                 .aspectRatio(contentMode: .fit)
                 .frame(width: 70, height: 30, alignment: /*@START_MENU_TOKEN@*/.center/*@END_MENU_TOKEN@*/)
@@ -170,7 +165,7 @@ struct QuestionView: View {
                             currAnswers: currAnswers,
                             numCorrect: $numCorrect,
                             totalQuestions: totalQuestions,
-                            userIsCorrect: (currAnswers[Int(correctAnswer)! - 1] == selectedAnswer)
+                            userIsCorrect: (selectedAnswer == currAnswers[Int(correctAnswer)! - 1])
                 )
                         .navigationBarHidden(true)
                 ) {
@@ -259,8 +254,10 @@ struct FinishView: View {
     }
 }
 
+#if DEBUG
 struct ContentView_Previews: PreviewProvider {
     static var previews: some View {
         ContentView()
     }
 }
+#endif
