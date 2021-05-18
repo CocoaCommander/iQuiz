@@ -7,166 +7,102 @@
 
 import SwiftUI
 
-//var image: String = "function"
-//var subject: String = "Mathematics"
-//var description: String = "Contains quizzes for Mathematics grades K-12"
-
-struct quizItem: Identifiable {
-    var id = UUID()
-    var image: String
-    var subject: String
-    var description: String
-    var questions: [question] = []
+struct Category: Codable {
+    var title: String
+    var desc: String
+    var questions: [Question]
 }
 
-struct question {
-    var questionText: String
+struct Question: Codable {
+    var text: String
+    var answer: String
     var answers: [String]
-    var correctAnswer: String
+}
+
+extension ContentView {
+    func loadData() {
+        guard let url = URL(string: "https://tednewardsandbox.site44.com/questions.json") else {
+            print("Invalid URL")
+            return
+        }
+        
+        let request = URLRequest(url: url)
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            if let data = data {
+                do {
+                    let decodedResponse = try JSONDecoder().decode([Category].self, from: data)
+                    DispatchQueue.main.async {
+                        self.allQuizzes = decodedResponse
+                    }
+                } catch DecodingError.keyNotFound(let key, let context) {
+                    Swift.print("could not find key \(key) in JSON: \(context.debugDescription)")
+                } catch DecodingError.valueNotFound(let type, let context) {
+                    Swift.print("could not find type \(type) in JSON: \(context.debugDescription)")
+                } catch DecodingError.typeMismatch(let type, let context) {
+                    Swift.print("type mismatch for type \(type) in JSON: \(context.debugDescription)")
+                } catch DecodingError.dataCorrupted(let context) {
+                    Swift.print("data found to be corrupted in JSON: \(context.debugDescription)")
+                } catch let error as NSError {
+                    NSLog("Error in read(from:ofType:) domain= \(error.domain), description= \(error.localizedDescription)")
+                }
+                self.allQuizzes = [
+                    Category(
+                        title: "Default",
+                        desc: "Default",
+                        questions: [
+                            Question(
+                                text: "Default",
+                                answer: "Default",
+                                answers: ["default"]
+                            )
+                        ]
+                    )
+                ]
+                Swift.print(self.allQuizzes)
+            }
+        }.resume()
+    }
 }
 
 struct ContentView: View {
     
     @State var showAlert = false
+    @State var allQuizzes: [Category] = []
     
-    var allQuizzes: [quizItem] = [
-        quizItem(
-            image: "function",
-            subject: "Mathematics",
-            description: "Contains quizzes for Mathematics grades K-12",
-            questions: [
-                question(
-                    questionText: "What is 2 + 2?",
-                    answers: [
-                        "1",
-                        "2",
-                        "3",
-                        "4"
-                    ],
-                    correctAnswer: "4"
-                ),
-                question(
-                    questionText: "What is 4 - 2?",
-                    answers: [
-                        "1",
-                        "2",
-                        "3",
-                        "4"
-                    ],
-                    correctAnswer: "2"
-                ),
-                question(
-                    questionText: "What is 3 * 1?",
-                    answers: [
-                        "1",
-                        "2",
-                        "3",
-                        "4"
-                    ],
-                    correctAnswer: "3"
-                )
-            ]
-        ),
-        quizItem(
-            image: "m.circle",
-            subject: "Marvel Super Heroes",
-            description: "Contains quizzes about Marvel Super Heroes",
-            questions: [
-                question(
-                    questionText: "Who is Iron Man's identity?",
-                    answers: [
-                        "Tony Stark",
-                        "Peter Parker",
-                        "Bruce Wayne",
-                        "Sheldon Cooper"                    ],
-                    correctAnswer: "Tony Stark"
-                ),
-                question(
-                    questionText: "What proportion of the universe did Thanos kill?",
-                    answers: [
-                        "1/2",
-                        "2/3",
-                        "3/7",
-                        "4/9"
-                    ],
-                    correctAnswer: "1/2"
-                ),
-                question(
-                    questionText: "Fill in the blank: Captain _______",
-                    answers: [
-                        "America",
-                        "Planet",
-                        "Crunch",
-                        "Kirk"
-                    ],
-                    correctAnswer: "America"
-                )
-            ]
-        ),
-        quizItem(
-            image: "bolt.circle",
-            subject: "Science",
-            description: "Contains quizzes about Science grades K-12",
-            questions: [
-                question(
-                    questionText: "Mitochondria?",
-                    answers: [
-                        "The powerhouse of the cell.",
-                        "A debugging method",
-                        "32nd element on the periodic table.",
-                        "What stars are made of."
-                    ],
-                    correctAnswer: "The powerhouse of the cell."
-                ),
-                question(
-                    questionText: "What is the boiling point of water?",
-                    answers: [
-                        "100 C",
-                        "200 C",
-                        "300 C",
-                        "400 C"
-                    ],
-                    correctAnswer: "100 C"
-                ),
-                question(
-                    questionText: "Force = Mass * ____________",
-                    answers: [
-                        "Acceleration",
-                        "Inertia",
-                        "Energy",
-                        "Speed of light"
-                    ],
-                    correctAnswer: "Acceleration"
-                )
-            ]
-        )
+    var images: [String: String] = [
+        "Science": "bolt.circle",
+        "Marvel Super Heroes": "m.circle",
+        "Mathematics": "function"
     ]
+    
     
     var body: some View {
         VStack {
             NavigationView {
-                List(allQuizzes) { quiz in
+                List(allQuizzes) { category in
                     NavigationLink(
-                        destination: QuestionView(
-                            allQuestions: quiz.questions,
-                            index: 0,
-                            currQuestion: quiz.questions[0].questionText,
-                            currAnswers: quiz.questions[0].answers,
-                            selectedAnswer: quiz.questions[0].answers[0],
-                            correctAnswer: quiz.questions[0].correctAnswer,
-                            numCorrect: 0,
-                            totalQuestions: quiz.questions.count
-                        )
+                        destination:
+                            QuestionView(
+                                allQuestions: category.questions,
+                                index: 0,
+                                currQuestion: category.questions[0].text,
+                                currAnswers: category.questions[0].answers,
+                                selectedAnswer: category.questions[0].answers[0],
+                                correctAnswer: category.questions[0].answer,
+                                numCorrect: 0,
+                                totalQuestions: category.questions.count)
                     ) {
-                        TopicCell(quizItem: quiz)
+                        TopicCell(quizItem: category, image: "function")
                     }
+                }
+                .onAppear {
+                    loadData()
                 }
                 .navigationTitle("iQuiz")
                 .toolbar {
                     ToolbarItem {
                         Button("Settings") {
-                            self.showAlert.toggle()
-                            print("\($showAlert)")
+                            self.showAlert = !self.showAlert
                         }
                     }
                 }
@@ -180,20 +116,24 @@ struct ContentView: View {
     }
 }
 
+
+
+
 struct TopicCell: View {
     
-    let quizItem: quizItem
+    let quizItem: Category
+    let image: String
     
     var body: some View {
         HStack(spacing: 50) {
-            Image(systemName: quizItem.image)
+            Image(systemName: image)
                 .resizable()
                 .aspectRatio(contentMode: .fit)
                 .frame(width: 70, height: 30, alignment: /*@START_MENU_TOKEN@*/.center/*@END_MENU_TOKEN@*/)
             VStack(alignment: .leading) {
-                Text(quizItem.subject)
+                Text(quizItem.title)
                     .bold()
-                Text(quizItem.description)
+                Text(quizItem.desc)
             }
         }
         .padding()
@@ -202,7 +142,7 @@ struct TopicCell: View {
 
 struct QuestionView: View {
     
-    var allQuestions: [question]
+    var allQuestions: [Question]
     @State var index: Int
     var currQuestion: String
     var currAnswers: [String]
@@ -222,16 +162,17 @@ struct QuestionView: View {
                     }
                 }
                 NavigationLink(
-                    destination: AnswerView(
-                        allQuestions: allQuestions,
-                        index: $index,
-                        currQuestion: currQuestion,
-                        currAnswers: currAnswers,
-                        selectedAnswer: selectedAnswer,
-                        correctAnswer: correctAnswer,
-                        numCorrect: $numCorrect,
-                        totalQuestions: totalQuestions
-                ).navigationBarHidden(true)
+                    destination:
+                        AnswerView(
+                            allQuestions: allQuestions,
+                            index: $index,
+                            currQuestion: currQuestion,
+                            currAnswers: currAnswers,
+                            numCorrect: $numCorrect,
+                            totalQuestions: totalQuestions,
+                            userIsCorrect: (currAnswers[Int(correctAnswer)! - 1] == selectedAnswer)
+                )
+                        .navigationBarHidden(true)
                 ) {
                     Text("Submit")
                 }
@@ -242,22 +183,19 @@ struct QuestionView: View {
 
 struct AnswerView: View {
     
-    var allQuestions: [question]
+    var allQuestions: [Question]
     @Binding var index: Int
     var currQuestion: String
     var currAnswers: [String]
-    var selectedAnswer: String
-    var correctAnswer: String
     @Binding var numCorrect: Int
     var totalQuestions: Int
-    @State var userIsCorrect = false
+    var userIsCorrect: Bool
     
-    func updateSelf(expectedAnswer expected: String, receivedAnswer received: String) -> Void {
-        if (expected == received) {
+    func updateSelf() -> Void {
+        if (self.userIsCorrect) {
             numCorrect += 1
         }
         index += 1
-        self.userIsCorrect = expected == received
     }
     
     @ViewBuilder
@@ -273,10 +211,10 @@ struct AnswerView: View {
                         destination: QuestionView(
                             allQuestions: allQuestions,
                             index: index,
-                            currQuestion: allQuestions[index].questionText,
+                            currQuestion: allQuestions[index].text,
                             currAnswers: allQuestions[index].answers,
                             selectedAnswer: allQuestions[index].answers[0],
-                            correctAnswer: allQuestions[index].correctAnswer,
+                            correctAnswer: allQuestions[index].answer,
                             numCorrect: numCorrect,
                             totalQuestions: totalQuestions
                         ).navigationBarHidden(true)
@@ -285,10 +223,7 @@ struct AnswerView: View {
                     }
                 }
             }.onAppear {
-                self.updateSelf(
-                    expectedAnswer: self.correctAnswer,
-                    receivedAnswer: self.selectedAnswer
-                )
+                self.updateSelf()
             }
         } else {
             NavigationView {
